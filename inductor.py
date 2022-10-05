@@ -11,8 +11,8 @@ from src.bart_with_group_beam import BartForConditionalGeneration_GroupBeam
 from src.utils import (construct_template, filter_words,
                        formalize_tA, post_process_template)
 
-ORION_HYPO_GENERATOR = 'chenxran/orion-hypothesis-generator'
-ORION_INS_GENERATOR = 'chenxran/orion-instance-generator'
+ORION_HYPO_GENERATOR = 'models/orion-hypothesis-generator'
+ORION_INS_GENERATOR = 'models/orion-instance-generator'
 
 RELATIONS = [
     "Causes",
