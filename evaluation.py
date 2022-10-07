@@ -119,26 +119,38 @@ class RelationExtractionEvaluator(object):
             }
             # 根据task参数打开相关的数据文件
             with open(FILES[task], 'r', encoding='utf-8') as file:
+                # 读取文件
                 data = file.readlines()
+                # 设置进度条长度为行数
                 with tqdm(total=len(data)) as pbar:
+                    # 循环读取行
                     for row in data:
+                        # 读一行数据进度条长度加1
                         pbar.update(1)
+                        # 移除头尾空字符，以tab为分隔符拆分字符串
                         row = row.strip().split('\t')
+                        # 获取不同的元素
                         inputs, head, tail, relations = row[0], row[1], row[2], row[3]
                         inputs = inputs.strip()
-                        
+                        # 这种情况特指openrule155
                         if relations.startswith('[') and relations.endswith(']'):
+                            # 清理数据，将inputs中的<A>和<B>替换成mask（实际上文件中并没有这种情况）
                             inputs = re.sub("<A>|<B>", "<mask>", inputs)
+                            # 将relation作为list进行迭代，把每个<A>和<B>替换成mask，并全部转换成小写，赋值给references这个list
                             references = [relation.replace('<A>', '<mask>').replace('<B>', '<mask>').lower().strip() for relation in eval(relations)]
-                        else:
+                        else:   # 不是openrule155任务
+                            # 将relation作为list进行迭代，把每个<X>和<Y>替换成mask，并全部转换成小写，赋值给references这个list
                             references = [relations.replace('[X]', '<mask>').replace('[Y]', '<mask>').lower().strip()]
+                        # 把每个句号前的空格去掉
                         references = self.clean_references(references)
+                        # 调用推导器的生成方法生成假说原子 ********重点*********
                         hypothesis = self.inductor.generate(inputs, k=10, topk=10)
                             
                         logger.info("***********Input************")
                         logger.info(inputs)
                         logger.info("*********Hypothesis*********")
                         for i, hypo in enumerate(hypothesis):
+                            # 规范假说的格式
                             hypothesis[i] = self.clean(hypo.lower().strip())
                             logger.info(hypo)
 
@@ -146,7 +158,7 @@ class RelationExtractionEvaluator(object):
                         logger.info("*********References*********")
                         logger.info(references)
                         logger.info("****************************")
-                        
+                        # 指标填写
                         if len(hypothesis) == 0:
                             for k in self.metrics.keys():
                                 if k != 'self-BLEU-2':

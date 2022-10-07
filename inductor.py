@@ -82,12 +82,15 @@ class BartInductor(object):
 
     def generate(self, inputs, k=10, topk=10):
         with torch.no_grad():
+            # 调用generate_rule方法生成结果
             tB_probs = self.generate_rule(inputs, k)
+            # 将生成结果中的<ent0>和<ent1>替换成<mask>
             ret = [t[0].replace('<ent0>','<mask>').replace('<ent1>','<mask>') for t in tB_probs]
-
+            # 保存生成结果的列表
             new_ret = []
             for temp in ret:
                 temp = self.clean(temp.strip())
+                # 列表长度小于最大数量限制k，且当前结果还未添加到列表中去
                 if len(new_ret) < topk and temp not in new_ret:
                     new_ret.append(temp)
 
@@ -99,10 +102,12 @@ class BartInductor(object):
         if required_token <= self.word_length:
             k = min(k, 2)
         ret = []
+        # 分词
         generated_ids = self.tokenizer(tA, max_length=128, padding='longest', return_tensors='pt')  # ["input_ids"].cuda()
         for key in generated_ids.keys():
             generated_ids[key] = generated_ids[key].cuda()
         mask_index = torch.where(generated_ids["input_ids"][0] == self.tokenizer.mask_token_id)
+        # 生成
         generated_ret = self.orion_instance_generator(**generated_ids)
         #logits = generated_ret.logits
         logits = generated_ret[0]
@@ -119,14 +124,19 @@ class BartInductor(object):
             tAs = tA[:index_s] + token_this + tA[index_s + len(self.tokenizer.mask_token):]
             tokens_this = [t for t in tokens]
             tokens_this.append(token_this)
+            # 深拷贝
             probs_new = deepcopy(probs)
+            # 添加预测结果到列表
             probs_new.append(prob_s)
+            # 递归调用
             ret.extend(self.explore_mask(tAs, 1, tokens_this, prob_s * prob, required_token - 1,probs_new))
         return ret
 
     def extract_words_for_tA_bart(self, tA, k=6, print_it = False):
         spans = [t.lower().strip() for t in tA[:-1].split('<mask>')]
+        # 分词
         generated_ids = self.tokenizer([tA], padding='longest', return_tensors='pt')['input_ids'].cuda()
+        # 生成
         generated_ret = self.orion_instance_generator.generate(generated_ids, num_beams=max(120, k),
                                             #num_beam_groups=max(120, k),
                                             max_length=generated_ids.size(1) + 15,
@@ -136,7 +146,9 @@ class BartInductor(object):
                                             #early_stopping=True, bad_words_ids=bad_words_ids, no_repeat_ngram_size=2,
                                             output_scores=True,
                                             return_dict_in_generate=True)
+        # 获取生成的id序列
         summary_ids = generated_ret['sequences']
+        # 预测
         probs = F.softmax(generated_ret['sequences_scores'])
         txts = [self.tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=True) for g in summary_ids]
         ret = []
@@ -183,7 +195,9 @@ class BartInductor(object):
     def extract_words_for_tA(self, tA, k=6):
         word_mask_str = ' '.join([self.tokenizer.mask_token] * self.word_length)
         tA = tA.replace('<mask>', word_mask_str)
+        # mask数量
         mask_count = tA.count(self.tokenizer.mask_token)
+        # 预测mask
         mask_probs = self.explore_mask(tA, k*20, [], 1.0, mask_count, [])
         ret = []
         visited_mask_txt = {}
@@ -276,13 +290,17 @@ class BartInductor(object):
 
     def generate_rule(self, tA, k=10, print_it = False):
         tA=formalize_tA(tA)
+        # 直接用bart生成
         if 'bart' in str(self.orion_instance_generator.__class__).lower():
             words_prob = self.extract_words_for_tA_bart(tA, k,print_it=print_it)
             words_prob = filter_words(words_prob)[:k]
             # if print_it:
                 # print(convert_for_print(words_prob))
+        # 用训练好的模型生成
         else:
+            # 抽取单词
             words_prob = self.extract_words_for_tA(tA, k)
+            # 过滤重复单词
             words_prob = filter_words(words_prob)[:k]
 
         tB_prob = self.extract_templateBs_batch(words_prob, tA, k,print_it=print_it)
