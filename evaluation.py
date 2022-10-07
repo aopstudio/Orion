@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 def print_config(config):
     config = vars(config)
+    # 在日志中输出参数设置，日志文件夹是logs
     logger.info("**************** MODEL CONFIGURATION ****************")
     for key in sorted(config.keys()):
         val = config[key]
@@ -61,16 +62,21 @@ def rouge(references, hypothesis):
 
 
 class RelationExtractionEvaluator(object):
+    # 构造方法
     def __init__(self, args):
         self.args = args
+        # 推理器参数是rule
         if self.args.inductor == 'rule':
+            # 设置推理器为BartInductor，并传入参数中的其他内容
             self.inductor = BartInductor(
                 group_beam=self.args.group_beam,
                 continue_pretrain_instance_generator=self.args.mlm_training,
                 continue_pretrain_hypo_generator=self.args.bart_training,
                 if_then=self.args.if_then,
             )
+        # 推理器参数是comet
         elif self.args.inductor == 'comet':
+            # 设置推理器为CometInductor
             self.inductor = CometInductor()
 
     def clean(self, text):
@@ -97,9 +103,11 @@ class RelationExtractionEvaluator(object):
 
         ret = np.mean(bleus)
         return ret
-    
+    # 评估任务
     def evaluate(self, task):
+        # 不用跟踪反向梯度计算
         with torch.no_grad():
+            # 不同的评估标准
             self.metrics = {
                 "bleu-4": [],
                 "bleu-3": [],
@@ -109,6 +117,7 @@ class RelationExtractionEvaluator(object):
                 "ROUGE-L": [],
                 "self-BLEU-2": [],
             }
+            # 根据task参数打开相关的数据文件
             with open(FILES[task], 'r', encoding='utf-8') as file:
                 data = file.readlines()
                 with tqdm(total=len(data)) as pbar:
@@ -240,15 +249,22 @@ class RelationExtractionEvaluator(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    # 推理器，可以选rule或者comet
     parser.add_argument("--inductor", type=str, default='rule')
+    # 是否使用束搜索
     parser.add_argument("--group_beam", type=bool, default=False)
+    # 是否在预测$P(ins|r_p)$ and $P(r_h|ins)$的预训练掩码语言模型（就是README中说要另外下载的模型）的基础上继续训练
     parser.add_argument("--mlm_training", type=bool, default=False)
     parser.add_argument("--bart_training", type=bool, default=False)
+    # 是否使用if-then的prompt模板
     parser.add_argument("--if_then", type=bool, default=False)
+    # 任务种类，在FILES常量中有定义
     parser.add_argument("--task", type=str, default='openrule155')
-
+    # 解析传入的参数
     args = parser.parse_args()
-
+    # 输出参数配置信息
     print_config(args)
+    # 创建评估器
     evaluator = RelationExtractionEvaluator(args)
+    # 根据传入的task参数进行相关的评估任务
     evaluator.evaluate(args.task)
