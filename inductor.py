@@ -146,10 +146,11 @@ class BartInductor(object):
                                             #early_stopping=True, bad_words_ids=bad_words_ids, no_repeat_ngram_size=2,
                                             output_scores=True,
                                             return_dict_in_generate=True)
-        # 获取生成的id序列
+        # 获取生成的句子（id序列）
         summary_ids = generated_ret['sequences']
-        # 预测
+        # 根据句子得分预测归一化的概率结果
         probs = F.softmax(generated_ret['sequences_scores'])
+        # 解码出文本
         txts = [self.tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=True) for g in summary_ids]
         ret = []
 
@@ -157,14 +158,19 @@ class BartInductor(object):
             if tA.endswith('.'):
                 if txt.endswith('.'):
                     txt = txt[:-1].strip()
+                # 所有的文本最后都加个点
                 txt += '.'
             word_imcomplete = False
+            # 获取当前句子的概率
             prob = probs[i].item()
             words_i = []
 
             start_index = 0
+            # 补全句子中的单词
             for j in range(len(spans)-1):
+                # 当前span
                 span1 = spans[j]
+                # 下一个span
                 span2 = spans[j+1]
                 if (span1 in txt.lower()[start_index:]) and (span2 in txt.lower()[start_index:]):
                     index1 = txt.lower().index(span1,start_index)+len(span1)
