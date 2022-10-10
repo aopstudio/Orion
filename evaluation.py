@@ -152,10 +152,12 @@ class RelationExtractionEvaluator(object):
                         for i, hypo in enumerate(hypothesis):
                             # 规范假说的格式
                             hypothesis[i] = self.clean(hypo.lower().strip())
+                            # 将假说输出到日志
                             logger.info(hypo)
 
                         logger.info("****************************")
                         logger.info("*********References*********")
+                        # 输出用于参考的关系（正确答案）
                         logger.info(references)
                         logger.info("****************************")
                         # 指标填写
@@ -246,7 +248,7 @@ class RelationExtractionEvaluator(object):
                                 logger.warning("Skip self-bleu-2 in example: {}.".format(inputs))
                                 pass
                         # break
-
+            # 输出结果和指标
             self.print(task, self.metrics)
 
     def print(self, task, metrics):
